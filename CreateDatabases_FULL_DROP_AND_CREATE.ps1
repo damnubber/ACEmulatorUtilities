@@ -2,7 +2,7 @@
 # Utility script to create MySql databases required by ACE
 #
 # Place this .ps1 in the root DATABASE folder in the solution directory.
-# Remember to update server/user/password variables
+# Remember to update server/user/password variables in config.json
 #
 # Created By Brian Mitchell
 # 2017-2-13
@@ -16,13 +16,8 @@ If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
     Exit
 }
 
-$dbserver = "localhost"
-$dbusername = "root"
-$dbpassword = "********"
-
-$authschemaname = "ace_auth"
-$worldschemaname = "ace_world"
-$characterschemaname = "ace_character"
+#Parse config file to object
+$config = (Get-Content ..\Source\ACE\config.json) -join "`n" | ConvertFrom-Json
 
 $basescriptpath = ".\Base\"
 $authupdatescriptpath = ".\Updates\Authentication\"
@@ -30,47 +25,85 @@ $worldupdatescriptpath = ".\Updates\World\"
 $characterupdatescriptpath = ".\Updates\Character\"
 
 # Create schemas in MySql
-$connStr = "server=" + $dbserver + ";Persist Security Info=false;user id=" + $dbusername + ";pwd=" + $dbpassword + ";"
-$conn = New-Object MySql.Data.MySqlClient.MySqlConnection($connStr)
+# Auth
+$connStr = "server=" + $Config.MySql.Authentication.Host + 
+		   ";Port=" + $Config.MySql.Authentication.Port + 
+		   ";Persist Security Info=false;user id=" + $Config.MySql.Authentication.Username + 
+		   ";pwd=" + $Config.MySql.Authentication.Password + ";"
 
+$conn = New-Object MySql.Data.MySqlClient.MySqlConnection($connStr)
 $conn.Open()
 
 $cmd = New-Object MySql.Data.MySqlClient.MySqlCommand
 $cmd.Connection  = $conn
 
-# Create schemas
-# Drop auth schema
-$cmd.CommandText = "DROP DATABASE IF EXISTS " + $authschemaname
+# Drop
+$cmd.CommandText = "DROP DATABASE IF EXISTS " + $Config.MySql.Authentication.Database
 $cmd.ExecuteNonQuery()
 
-# Drop world schema
-$cmd.CommandText = "DROP DATABASE IF EXISTS " + $worldschemaname
+# Create
+$cmd.CommandText = 'CREATE SCHEMA `' + $Config.MySql.Authentication.Database + '`'
 $cmd.ExecuteNonQuery()
 
-# Drop character schema
-$cmd.CommandText = "DROP DATABASE IF EXISTS " + $characterschemaname
+$conn.Close()
+
+# World
+$connStr = "server=" + $Config.MySql.World.Host + 
+		   ";Port=" + $Config.MySql.World.Port + 
+		   ";Persist Security Info=false;user id=" + $Config.MySql.World.Username + 
+		   ";pwd=" + $Config.MySql.World.Password + ";"
+
+$conn = New-Object MySql.Data.MySqlClient.MySqlConnection($connStr)
+$conn.Open()
+
+$cmd = New-Object MySql.Data.MySqlClient.MySqlCommand
+$cmd.Connection  = $conn
+
+# Drop
+$cmd.CommandText = "DROP DATABASE IF EXISTS " + $Config.MySql.World.Database
 $cmd.ExecuteNonQuery()
 
-# Create auth schema
-$cmd.CommandText = 'CREATE SCHEMA `' + $authschemaname + '`'
+# Create
+$cmd.CommandText = 'CREATE SCHEMA `' + $Config.MySql.World.Database + '`'
 $cmd.ExecuteNonQuery()
 
-# Create world schema
-$cmd.CommandText = 'CREATE SCHEMA `' + $worldschemaname + '`'
+$conn.Close()
+
+# Character
+$conn = "server=" + $Config.MySql.Character.Host + 
+		";Port=" + $Config.MySql.Character.Port + 
+		";Persist Security Info=false;user id=" + $Config.MySql.Character.Username + 
+		";pwd=" + $Config.MySql.Character.Password + ";"
+
+$conn = New-Object MySql.Data.MySqlClient.MySqlConnection($connStr)
+$conn.Open()
+
+$cmd = New-Object MySql.Data.MySqlClient.MySqlCommand
+$cmd.Connection  = $conn
+
+# Drop
+$cmd.CommandText = "DROP DATABASE IF EXISTS " + $Config.MySql.Character.Database
 $cmd.ExecuteNonQuery()
 
-# Create character schema
-$cmd.CommandText = 'CREATE SCHEMA `' + $characterschemaname + '`'
+# Create
+$cmd.CommandText = 'CREATE SCHEMA `' + $Config.MySql.Character.Database + '`'
 $cmd.ExecuteNonQuery()
 
 $conn.Close()
 
 # Run data scripts
 # Auth
-$connStr = "server=" + $dbserver + ";Database=" + $authschemaname + ";Persist Security Info=false;user id=" + $dbusername + ";pwd=" + $dbpassword + ";"
-$conn = New-Object MySql.Data.MySqlClient.MySqlConnection($connStr)
+$connStr = "server=" + $Config.MySql.Authentication.Host + 
+		   ";Port=" + $Config.MySql.Authentication.Port + 
+		   ";Database=" + $Config.MySql.Authentication.Database + 
+		   ";Persist Security Info=false;user id=" + $Config.MySql.Authentication.Username + 
+		   ";pwd=" + $Config.MySql.Authentication.Password + ";"
 
-$conn.Open()
+$conn = New-Object MySql.Data.MySqlClient.MySqlConnection($connStr)
+$conn.Open()		
+
+$cmd = New-Object MySql.Data.MySqlClient.MySqlCommand
+$cmd.Connection  = $conn
 
 $sql = (Get-Content -path ($basescriptpath + "AuthenticationBase.sql")) -join "`r`n"
 
@@ -92,10 +125,17 @@ for ($i=0; $i -lt $updates.Count; $i++) {
 $conn.Close()
 
 # World
-$connStr = "server=" + $dbserver + ";Database=" + $worldschemaname + ";Persist Security Info=false;user id=" + $dbusername + ";pwd=" + $dbpassword + ";"
-$conn = New-Object MySql.Data.MySqlClient.MySqlConnection($connStr)
+$connStr = "server=" + $Config.MySql.World.Host + 
+		   ";Port=" + $Config.MySql.World.Port + 
+		   ";Database=" + $Config.MySql.World.Database + 
+		   ";Persist Security Info=false;user id=" + $Config.MySql.World.Username + 
+		   ";pwd=" + $Config.MySql.World.Password + ";"
 
+$conn = New-Object MySql.Data.MySqlClient.MySqlConnection($connStr)
 $conn.Open()
+
+$cmd = New-Object MySql.Data.MySqlClient.MySqlCommand
+$cmd.Connection  = $conn
 
 $sql = (Get-Content -path ($basescriptpath + "WorldBase.sql")) -join "`r`n"
 
@@ -117,10 +157,17 @@ for ($i=0; $i -lt $updates.Count; $i++) {
 $conn.Close()
 
 # Character
-$connStr = "server=" + $dbserver + ";Database=" + $characterschemaname + ";Persist Security Info=false;user id=" + $dbusername + ";pwd=" + $dbpassword + ";"
-$conn = New-Object MySql.Data.MySqlClient.MySqlConnection($connStr)
+$connStr = "server=" + $Config.MySql.Character.Host + 
+		   ";Port=" + $Config.MySql.Character.Port + 
+		   ";Database=" + $Config.MySql.Character.Database + 
+		   ";Persist Security Info=false;user id=" + $Config.MySql.Character.Username + 
+		   ";pwd=" + $Config.MySql.Character.Password + ";"
 
+$conn = New-Object MySql.Data.MySqlClient.MySqlConnection($connStr)
 $conn.Open()
+
+$cmd = New-Object MySql.Data.MySqlClient.MySqlCommand
+$cmd.Connection  = $conn
 
 $sql = (Get-Content -path ($basescriptpath + "CharacterBase.sql")) -join "`r`n"
 
